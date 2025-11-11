@@ -2,20 +2,8 @@ import numpy as np
 import gymnasium as gym
 
 class SpiderEnv(gym.Env):
-    def __init__(self, robot_init_pos, target_init_pos=None, render_mode=None):
-        high = np.array([8, 8, np.pi, 8, 8], dtype=np.float32)
-        low  = np.array([-8, -8, -np.pi, -8, -8], dtype=np.float32)
-        self.observation_space = gym.spaces.Box(low=low, high=high, dtype=np.float32)
-
-        self.action_space = gym.spaces.Discrete(12)
-        self.robot_pos = robot_init_pos
-
-        if target_init_pos is None:
-            sigma = 3.0 
-            self.target_pos = self.robot_pos + np.random.randn(2) * sigma
-        else:
-            self.target_pos = target_init_pos
-        
+    def __init__(self, target_init_pos=None, render_mode=None):
+        self.observation_space = gym.spaces.Box(low=0, high=1,shape=(4,4), dtype=np.float32)
         self.commands = {
             0: (227,[]), #Pivot Left
             1: 228, #Pivot Right
@@ -30,18 +18,27 @@ class SpiderEnv(gym.Env):
             10:(266,[-0.0588,0.0,0.0]), #Bwd
             11:267, #FastBwd
         }
-
-    def reset(self, robot_init_pos=None, target_init_pos=None):
-        if robot_init_pos is None:
-            self.robot_pos = self.robot_pos
-        else:
-            self.robot_pos = robot_init_pos
+        self.action_space = gym.spaces.Discrete(len(self.commands))
+        self.robot_pos = [0,0,0]
 
         if target_init_pos is None:
             sigma = 3.0 
             self.target_pos = self.robot_pos + np.random.randn(2) * sigma
         else:
             self.target_pos = target_init_pos
+        
+
+    def reset(self, options: dict):
+        if options['robot_init_pos'] is None:
+            self.robot_pos = self.robot_pos
+        else:
+            self.robot_pos = [0,0,0]
+
+        if options['target_init_pos'] is None:
+            sigma = 3.0 
+            self.target_pos = self.robot_pos + np.random.randn(2) * sigma
+        else:
+            self.target_pos = options['target_init_pos']
 
     
     def get_obs(self):
@@ -51,14 +48,26 @@ class SpiderEnv(gym.Env):
         
 
     def step(self, action):
-        command = self.commands[action]
-        
+        command,movement = self.commands[action]
+        dx = self.robot_pos[0] + movement[0]
+        dy = self.robot_pos[1] + movement[1]
+        dtheta = self.robot_pos[2] + movement[2]
+        self.robot_pos = [dx,dy,dtheta]
+
+
+        # tx = [dx-self]
+        # ty = 
+        # self.robot_pos = [dx,dy,dtheta]
+        # self.observation_space = 
+    
+    # def get_distance_to_target(self):
+
         
 
     # def render(self):
         
 
-    def close(self):
-        pass
+    # def close(self):
+    #     pass
 
 
