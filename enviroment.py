@@ -1,50 +1,57 @@
 import numpy as np
 import gymnasium as gym
-import matplotlib.pyplot as plt
+from scipy.ndimage import rotate
 
 class SpiderEnv(gym.Env):
-    def __init__(self, target_init_pos=None, map_shape=4, success_radius=0.08, max_steps=200,render_mode=None):
-        self.observation_space = gym.spaces.Box(low=0, high=1,shape=(map_shape,map_shape), dtype=np.float32)
+    def __init__(self, target_init_pos=None, map_shape=8):
+        super().__init__()
+        self.map_shape = map_shape
+        self.observation_space = gym.spaces.Box(
+            low=0, high=1, shape=(map_shape, map_shape), dtype=np.float32
+        )
+        self.action_space = gym.spaces.Discrete(12)
+
+        # comandos: (dx, dy, dtheta)
         self.commands = {
-            0: (227,[]), #Pivot Left
-            1: 228, #Pivot Right
-            2: 251, #FwdSteer Left
-            3: (252,[0.0773,0.0,np.deg2rad(4.44)]), #Fwd
-            4: 253, #FwdSteer Right
-            5: 256, #BwdSteer Left
-            6: 258, #BwdSteer Right
-            7: 261, #FastFwdSteer Left
-            8: 262, #FastFwd
-            9: 263, #FastFwdSteer Right
-            10:(266,[-0.0588,0.0,0.0]), #Bwd
-            11:267, #FastBwd
+            0: (0.0, 0.0, np.deg2rad(10)),
+            1: (0.0, 0.0, -np.deg2rad(10)),
+            2: (0.1, 0.0, 0.0),
+            3: (0.05, 0.0, 0.0),
+            4: (0.1, 0.0, 0.0),
+            5: (-0.05, 0.0, 0.0),
+            6: (-0.1, 0.0, 0.0),
+            7: (0.15, 0.0, 0.0),
+            8: (0.2, 0.0, 0.0),
+            9: (0.15, 0.0, 0.0),
+            10:(-0.1, 0.0, 0.0),
+            11:(-0.2, 0.0, 0.0)
         }
-        self.action_space = gym.spaces.Discrete(len(self.commands))
 
         if target_init_pos is None:
             self.target_pos = np.random.uniform(-1, 1, size=2)
         else:
-            self.target_pos = target_init_pos
-        self.step_count = 0
-        self.success_radius = float(success_radius)
-        self.max_steps = int(max_steps)
-        self.fig, self.ax = None, None
+            self.target_pos = np.array(target_init_pos, dtype=np.float32)
 
-    def reset(self, options: dict = None):
-        self.step_count = 0
-        if options is None or options.get('target_init_pos') is None:
-            self.target_pos = np.random.uniform(-1, 1, size=2)
+        self.theta = 0.0
+        self.state = np.zeros((map_shape, map_shape), dtype=np.float32)
+
+    def reset(self, *, options=None):
+        self.theta = 0.0
+        if options and "target_init_pos" in options:
+            self.target_pos = np.array(options["target_init_pos"], dtype=np.float32)
         else:
-            self.target_pos = np.array(options['target_init_pos'], dtype=np.float64)
+            self.target_pos = np.random.uniform(-1, 1, size=2)
+        self._update_grid()
+        return self.state, {}
 
-        obs = self.target_pos.astype(np.float32)
-        info = {}
-        return obs, info
+    def _update_grid(self):
+        """
+        Grilla centrada en el robot (0,0) con target rotado según theta
+        """
+        grid = np.zeros((self.map_shape, self.map_shape), dtype=np.float32)
+        cx, cy = self.map_shape // 2, self.map_shape // 2
 
-    def get_obs(self):
-        pass
-
-    def calc_new_target(self, theta, dx, dy):
+        # rotar target según theta (robot siempre en 0)
         R = np.array([
             [np.cos(-theta), -np.sin(-theta)],
             [np.sin(-theta),  np.cos(-theta)]
@@ -54,51 +61,28 @@ class SpiderEnv(gym.Env):
         return t_new
 
     def step(self, action):
-        command, movement = self.commands[action]
-        dx, dy, dtheta = movement
-        self.target_pos = self.calc_new_target(dtheta, dx, dy)
-        self.step_count += 1
+        dx, dy, dtheta = self.commands[action]
 
-        dist = float(np.linalg.norm(self.target_pos))
-        terminated = dist <= self.success_radius
-        truncated = self.step_count >= self.max_steps
-        reward = -dist
+        # mover target relativo al robot
+        R = np.array([
+            [np.cos(-dtheta), -np.sin(-dtheta)],
+            [np.sin(-dtheta),  np.cos(-dtheta)]
+        ])
+        self.target_pos = R @ (self.target_pos - np.array([dx, dy]))
 
-        obs = self.target_pos.astype(np.float32)
-        info = {"comando": command, "target": self.target_pos}
+        # actualizar theta y grilla
+        self.theta += dtheta
+        self._update_grid()
 
-        if self.render_mode == "human":
-            self.render()
+        # distancia al target
+        distance = np.linalg.norm(self.target_pos)
+        done = distance < 0.05
+        reward = -distance
 
-        return obs, reward, terminated, truncated, info
-    
+        obs = self.state
+        info = {"distance": distance, "theta": self.theta}
+        return obs, reward, done, False, info
+
     def render(self):
-        if self.fig is None:
-            self.fig, self.ax = plt.subplots()
-            self.ax.set_xlim(-1.5, 1.5)
-            self.ax.set_ylim(-1.5, 1.5)
-            self.ax.set_xlabel("X (m)")
-            self.ax.set_ylabel("Y (m)")
-            self.ax.set_title("SpiderEnv - Target movement")
-            self.robot_dot, = self.ax.plot(0, 0, 'bo', label='Robot (0,0)')
-            self.target_dot, = self.ax.plot([], [], 'ro', label='Target')
-            self.range_circle = plt.Circle((0, 0), self.success_radius, color='g', fill=False, linestyle='--')
-            self.ax.add_artist(self.range_circle)
-            self.ax.legend()
-            plt.ion()
-            plt.show()
-
-        # Actualizar posición del target
-        self.target_dot.set_data(self.target_pos[0], self.target_pos[1])
-        self.ax.set_title(f"Step {self.step_count} | Target=({self.target_pos[0]:.2f},{self.target_pos[1]:.2f})")
-        plt.pause(0.001)
-
-    def close(self):
-        if self.fig:
-            plt.close(self.fig)
-            self.fig = None
-
-env = SpiderEnv(render_mode="human")
-for _ in range(10):
-    obs, reward, terminated, truncated, info = env.step(3)
-    print(info)
+        print("Grilla:")
+        print(self.state)
