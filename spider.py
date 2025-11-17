@@ -1,6 +1,5 @@
 import os
-import numpy as np
-
+import torch
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.callbacks import CheckpointCallback
@@ -23,7 +22,7 @@ def make_env(seed: int = 0, **env_kwargs):
 
 def main():
     # ---------- CONFIGURACIÓN ----------
-    total_timesteps = 10_000_000     
+    total_timesteps = 5_000_000     
     n_envs = 20                    
     log_dir = "./logs_spider"
     models_dir = "./models_spider"
@@ -41,20 +40,25 @@ def main():
 
     # ---------- MODELO PPO ----------
     model = PPO(
-        "MlpPolicy",
-        env,
-        learning_rate=3e-4,
-        n_steps=2048,       
-        batch_size=1024,
-        n_epochs=10,
-        gamma=0.99,
-        gae_lambda=0.95,
-        clip_range=0.2,
-        ent_coef=0.0,
-        vf_coef=0.5,
-        verbose=0,
-        tensorboard_log=log_dir,
-    )
+    "MlpPolicy",
+    env,
+    learning_rate=0.000355207825977822,
+    n_steps=256,                      
+    batch_size=8,                     
+    n_epochs=20,
+    gamma=1.0-0.020861896769546508,         
+    gae_lambda=1.0-0.0024085305544837197,    
+    clip_range=0.1,
+    ent_coef=1.440070886288556e-06,
+    vf_coef=0.5,
+    max_grad_norm=0.7456096284142648,
+    policy_kwargs=dict(
+        net_arch=[dict(pi=[64, 64], vf=[64, 64])],  
+        activation_fn=torch.nn.Tanh,                
+    ),
+    verbose=0,
+    tensorboard_log=log_dir,
+)
 
     # ---------- CALLBACKS ----------
     policy_cb = PolicyMapCallback(
