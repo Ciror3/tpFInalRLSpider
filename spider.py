@@ -22,8 +22,8 @@ def make_env(seed: int = 0, **env_kwargs):
 
 def main():
     # ---------- CONFIGURACIÓN ----------
-    total_timesteps = 5_000_000     
-    n_envs = 20                    
+    total_timesteps = 2_000_000     
+    n_envs = 4                    
     log_dir = "./logs_spider"
     models_dir = "./models_spider"
     policy_maps_dir = "./policy_maps"
@@ -46,8 +46,8 @@ def main():
     n_steps=256,                      
     batch_size=8,                     
     n_epochs=20,
-    gamma=1.0-0.020861896769546508,         
-    gae_lambda=1.0-0.0024085305544837197,    
+    gamma=0.9791381032304535,         
+    gae_lambda=0.9975914694455162,    
     clip_range=0.1,
     ent_coef=1.440070886288556e-06,
     vf_coef=0.5,

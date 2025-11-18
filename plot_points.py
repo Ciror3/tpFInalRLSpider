@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from enviroment import SpiderEnv
 
 
-model = PPO.load("/home/ciror/Desktop/rl/tps/tpfinal/tpFInalRLSpider/ppo_spider.zip")
+model = PPO.load("/home/ciror/Desktop/rl/tps/tpfinal/tpFInalRLSpider/models_spider/ppo_spider.zip")
 env = SpiderEnv(render_mode=None)
 mapX = np.arange(-2, 2.01, 0.1)
 mapY = np.arange(-2, 2.01, 0.1)
