@@ -192,17 +192,9 @@ import gymnasium as gym
 import pygame
 
 class SpiderEnv(gym.Env):
-    metadata = {"render_modes": ["human", None], "render_fps": 10}
+    metadata = {"render_modes": ["human", None], "render_fps": 5}
 
-    def __init__(
-        self,
-        target_init_pos=None,
-        map_shape_x=7,
-        map_shape_y=8,
-        success_radius=0.2,
-        max_steps=200,
-        render_mode=None,
-    ):
+    def __init__(self,target_init_pos=None,map_shape_x=7,map_shape_y=8,success_radius=0.2,max_steps=200,render_mode=None):
         # tamaños del mundo en cada eje
         self.world_size_x = float(map_shape_x)
         self.world_size_y = float(map_shape_y)
@@ -237,7 +229,6 @@ class SpiderEnv(gym.Env):
         self.action_space = gym.spaces.Discrete(len(self.commands))
 
         if target_init_pos is None:
-            # target aleatorio dentro del rectángulo
             self.target_pos = np.array(
                 [
                     np.random.uniform(-half_x, half_x),
@@ -322,7 +313,7 @@ class SpiderEnv(gym.Env):
         ori_improvement = self.last_angle - new_angle
         ori_improvement /= (np.pi / 2.0)
 
-        reward = self.last_distance - dist - 0.1 + 0.2 * ori_improvement
+        reward = self.last_distance - dist - 0.1 #+ 0.2 * ori_improvement
 
         self.last_distance = dist
         self.last_angle = new_angle
@@ -371,23 +362,18 @@ class SpiderEnv(gym.Env):
             2
         )
 
-        # robot en el centro
         robot_x, robot_y = self._world_to_screen(0.0, 0.0)
         pygame.draw.circle(self.screen, (0, 0, 255), (robot_x, robot_y), 8)
 
-        # círculo de radio de éxito
         radius_px = int(self.success_radius * self.scale)
         pygame.draw.circle(self.screen, (0, 255, 0), (robot_x, robot_y), radius_px, 1)
 
-        # target
         tx, ty = self.target_pos
         target_px = self._world_to_screen(tx, ty)
         pygame.draw.circle(self.screen, (255, 0, 0), target_px, 6)
 
-        # línea robot -> target
         pygame.draw.line(self.screen, (200, 200, 0), (robot_x, robot_y), target_px, 1)
 
-        # texto con info
         font = pygame.font.SysFont(None, 20)
         dist = float(np.linalg.norm(self.target_pos))
         text_surface = font.render(

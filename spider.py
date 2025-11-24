@@ -24,9 +24,9 @@ def main():
     total_timesteps = 1_000_000 # Dejamos 200k para probar rapido si funciona     
     n_envs = 4
     run_name = datetime.now().strftime("run_%Y%m%d_%H%M%S")  # id único por ejecución
-    log_dir = os.path.join("./logs_spider", run_name)
-    models_dir = os.path.join("./models_spider", run_name)
-    policy_maps_dir = os.path.join("./policy_maps", run_name)
+    log_dir = os.path.join("logs_spider", run_name)
+    models_dir = os.path.join("models_spider", run_name)
+    policy_maps_dir = os.path.join("policy_maps", run_name)
 
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(models_dir, exist_ok=True)
