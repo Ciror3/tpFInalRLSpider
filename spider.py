@@ -21,7 +21,7 @@ def make_env(seed: int = 0, **env_kwargs):
 
 def main():
     # ---------- CONFIGURACIÓN ----------
-    total_timesteps = 1_000_000 # Dejamos 200k para probar rapido si funciona     
+    total_timesteps = 500_000   
     n_envs = 4
     run_name = datetime.now().strftime("run_%Y%m%d_%H%M%S")  # id único por ejecución
     log_dir = os.path.join("logs_spider", run_name)

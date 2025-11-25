@@ -212,20 +212,36 @@ class SpiderEnv(gym.Env):
         )
 
         self.commands = {
-            0: (227,[0.0667, -0.0052, np.deg2rad(32.72)]),  # Pivot Left (OK)
-            1: (228,[0.0667,  0.0052, -np.deg2rad(32.72)]), # Pivot Right (CORREGIDO: Signo menos)
+            0: (227,[0.00589, -0.00468, -np.deg2rad(31.2)]),  # Pivot Left 
+            1: (228,[0.00002, 0.00490, np.deg2rad(27.3)]), # Pivot Right 
 
-            2: (251,[0.0776, -0.0074, np.deg2rad(10.94)]),  # FwdSteer Left (OK)
-            3: (252,[0.0773,  0.0,    np.deg2rad(4.44)]),   # Fwd (Drift a la izquierda natural)
-            4: (253,[0.0748,  0.0064, -np.deg2rad(9.79)]),  # FwdSteer Right (CORREGIDO: Signo menos)
+            2: (251,[0.07877, -0.01080, -np.deg2rad(10.2283)]),  # FwdSteer Left (OK)
+            3: (252,[0.07160, -0.00625,    np.deg2rad(1.6188)]),   # Fwd (Drift a la izquierda natural)
+            4: (253,[0.06613, 0.01076, np.deg2rad(7.8102)]),  # FwdSteer Right 
 
-            5: (256,[-0.0603, 0.0025, np.deg2rad(5.81)]),   # BwdSteer Left (OK)
-            6: (258,[-0.0641, 0.002,  -0.03175]),           # BwdSteer Right (CORREGIDO: Signo menos)
+            5: (256,[-0.05835, 0.00319, -np.deg2rad(4.1511)]),   # BwdSteer Left (OK)
+            6: (258,[-0.06480, 0.00246,  np.deg2rad(10.2672)]),           # BwdSteer Right 
 
-            7: (262,[0.0893,  0.0,    0.0]),                # FastFwd (OK)
-            8: (266,[-0.0588, 0.0,    0.0]),                # Bwd (OK)
-            9: (267,[-0.715,  0.0,    0.0]),                # FastBwd (OK)
+            7: (262,[0.10923, -0.02321, np.deg2rad(3.3947)]),                # FastFwd (OK)
+            8: (266,[-0.05726, 0.00327, -np.deg2rad(3.7919)]),                # Bwd (OK)
+            9: (267,[-0.08296, -0.00177, -np.deg2rad(4.8641)]),                # FastBwd (OK)
+            10: (261,[0.07163, -0.01131, -np.deg2rad(2.1642)]),  # FastFwdSteer Left
+            11: (263,[0.07658, -0.00776, np.deg2rad(7.7978)]),  # FastFwdSteer Right
         }
+
+
+# Pivot_Left, 227, 5, 0.00589, -0.00468, 31.2
+# Pivot_Right, 228, 5, 0.00002, 0.00490, -27.3
+# FwdSteer_Left, 251, 5, 0.07877, -0.01080, 10.2283
+# Fwd, 252, 5, 0.07160, -0.00625, 1.6188
+# FwdSteer_Right, 253, 5, 0.06613, 0.01076, -7.8102
+# BwdSteer_Left, 256, 5, -0.05835, 0.00319, -4.1511
+# BwdSteer_Right, 258, 5, -0.06480, 0.00246, 10.2672
+# FastFwd, 262, 5, 0.10923, -0.02321, -3.3947
+# Bwd, 266, 5, -0.05726, 0.00327, -3.7919
+# FastBwd, 267, 5, -0.08296, -0.00177, 4.8641
+# FastFwdSteer_Left, 261, 5, 0.07163, -0.01131, 2.1642
+# FastFwdSteer_Right, 263, 5, 0.07658, -0.00776, -7.7978
         self.action_space = gym.spaces.Discrete(len(self.commands))
 
         if target_init_pos is None:
@@ -251,6 +267,7 @@ class SpiderEnv(gym.Env):
         self.clock = None
 
         self.scale = (self.window_size * 0.4) / (self.world_size / 2.0)
+        self.noise_ratio = 0.05  # 5% de ruido gaussiano relativo al movimiento
 
     def angle_misalignment(self, target_vec):
         d = np.linalg.norm(target_vec)
@@ -280,7 +297,8 @@ class SpiderEnv(gym.Env):
             self.target_pos = np.array(options["target_init_pos"], dtype=np.float64)
 
         self.last_distance = float(np.linalg.norm(self.target_pos))
-        self.last_angle_error = self.angle_misalignment(self.target_pos)
+        # Refrescamos la orientación inicial para que el shaping use el valor actual
+        self.last_angle = self.angle_misalignment(self.target_pos)
         obs = self.target_pos.astype(np.float32)
         info = {}
         return obs, info
@@ -299,9 +317,15 @@ class SpiderEnv(gym.Env):
         t_new = R @ (t - np.array([dx, dy]))
         return t_new
 
+    def _apply_movement_noise(self, movement):
+        movement = np.asarray(movement, dtype=np.float64)
+        sigma = np.abs(movement) * self.noise_ratio
+        noise = np.random.normal(loc=0.0, scale=sigma)
+        return movement + noise
+
     def step(self, action):
         command, movement = self.commands[action]
-        dx, dy, dtheta = movement
+        dx, dy, dtheta = self._apply_movement_noise(movement)
         self.target_pos = self.calc_new_target(dtheta, dx, dy)
         self.step_count += 1
 
@@ -313,7 +337,7 @@ class SpiderEnv(gym.Env):
         ori_improvement = self.last_angle - new_angle
         ori_improvement /= (np.pi / 2.0)
 
-        reward = self.last_distance - dist - 0.1 #+ 0.2 * ori_improvement
+        reward = self.last_distance - dist - 0.1 + 0.2 * ori_improvement
 
         self.last_distance = dist
         self.last_angle = new_angle
