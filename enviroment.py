@@ -268,6 +268,12 @@ class SpiderEnv(gym.Env):
 
         self.scale = (self.window_size * 0.4) / (self.world_size / 2.0)
         self.noise_ratio = 0.05  # 5% de ruido gaussiano relativo al movimiento
+        # Config de recompensas
+        self.step_cost = 0.08
+        self.distance_scale = self.world_size * 1.2  # Escala el delta de distancia
+        self.orientation_weight = 0.12
+        self.success_bonus = 4.0
+        self.backtrack_penalty = 0.1
 
     def angle_misalignment(self, target_vec):
         d = np.linalg.norm(target_vec)
@@ -337,7 +343,27 @@ class SpiderEnv(gym.Env):
         ori_improvement = self.last_angle - new_angle
         ori_improvement /= (np.pi / 2.0)
 
-        reward = self.last_distance - dist - 0.1 + 0.2 * ori_improvement
+        reward = 0.0
+
+        # 1) Progreso en distancia (escalado por tamaño de mapa)
+        distance_delta = self.last_distance - dist
+        reward += distance_delta * self.distance_scale
+
+        # 2) Coste base por paso
+        reward -= self.step_cost
+
+        # 3) Orientación solo si hubo avance, ponderado por distancia actual
+        if distance_delta > 0:
+            far_scale = min(1.0, dist / (self.world_size / 2.0)) if self.world_size > 0 else 0.0
+            reward += self.orientation_weight * ori_improvement * far_scale
+
+        # 4) Penalización extra si te alejaste
+        if distance_delta < 0:
+            reward -= self.backtrack_penalty
+
+        # 5) Bonus por éxito
+        if terminated:
+            reward += self.success_bonus
 
         self.last_distance = dist
         self.last_angle = new_angle
