@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+
+logs_spider/
+models_spider/
+policy_maps/
+policy_maps_1/
+
+# Por si acaso
+*.tfevents.*
+
+

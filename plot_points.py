@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 from enviroment import SpiderEnv
 
 
-model = PPO.load("/home/ciror/Desktop/rl/tps/tpfinal/tpFInalRLSpider/models_spider/ppo_spider.zip")
+model = PPO.load("/home/facuvulcano/tpFInalRLSpider/models_spider/run_20251124_160248/ppo_spider_200000_steps.zip")
 env = SpiderEnv(render_mode=None)
-mapX = np.arange(-2, 2.01, 0.1)
-mapY = np.arange(-2, 2.01, 0.1)
+mapX = np.arange(-4, 4.01, 0.02)
+mapY = np.arange(-4, 4.01, 0.02)
 policy_map = np.zeros((len(mapY), len(mapX)), dtype=int)
 
 for iy, y in enumerate(mapY):
@@ -20,7 +20,7 @@ for iy, y in enumerate(mapY):
 
 
 plt.figure(figsize=(8, 8))
-plt.imshow(policy_map, extent=[-2, 2, -2, 2], origin="lower",cmap="turbo")
+plt.imshow(policy_map, extent=[-4, 4, -4, 4], origin="lower",cmap="turbo")
 plt.colorbar(label="Acción PPO")
 plt.xlabel("x del target")
 plt.ylabel("y del target")

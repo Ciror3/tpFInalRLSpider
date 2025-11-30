@@ -1,20 +1,19 @@
 import os
+from datetime import datetime
 import torch
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.monitor import Monitor
 
 from enviroment import SpiderEnv        
 from policy_callback import PolicyMapCallback  
 
 
 def make_env(seed: int = 0, **env_kwargs):
-    """
-    Crea una función que inicializa una instancia de SpiderEnv.
-    Esto es lo que necesita SubprocVecEnv para crear entornos en paralelo.
-    """
     def _init():
         env = SpiderEnv(**env_kwargs)
+        env = Monitor(env) # Mantenemos el monitor para ver rewards
         env.reset(seed=seed)
         return env
     return _init
@@ -22,11 +21,12 @@ def make_env(seed: int = 0, **env_kwargs):
 
 def main():
     # ---------- CONFIGURACIÓN ----------
-    total_timesteps = 2_000_000     
-    n_envs = 4                    
-    log_dir = "./logs_spider"
-    models_dir = "./models_spider"
-    policy_maps_dir = "./policy_maps"
+    total_timesteps = 500_000   
+    n_envs = 4
+    run_name = datetime.now().strftime("run_%Y%m%d_%H%M%S")  # id único por ejecución
+    log_dir = os.path.join("logs_spider", run_name)
+    models_dir = os.path.join("models_spider", run_name)
+    policy_maps_dir = os.path.join("policy_maps", run_name)
 
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(models_dir, exist_ok=True)
@@ -39,6 +39,7 @@ def main():
     )
 
     # ---------- MODELO PPO ----------
+    # La red se adaptará automaticamente al nuevo input shape (3,)
     model = PPO(
     "MlpPolicy",
     env,
@@ -62,13 +63,13 @@ def main():
 
     # ---------- CALLBACKS ----------
     policy_cb = PolicyMapCallback(
-        freq=50_000,             
+        freq=5_000,             
         save_path=policy_maps_dir,
         verbose=1
     )
 
     checkpoint_cb = CheckpointCallback(
-        save_freq=100_000 // n_envs,   
+        save_freq=5_000 // n_envs,   
         save_path=models_dir,
         name_prefix="ppo_spider"
     )
