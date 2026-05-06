@@ -1,3 +1,4 @@
+import argparse
 import os
 from datetime import datetime
 import torch
@@ -6,27 +7,41 @@ from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.monitor import Monitor
 
-from enviroment import SpiderEnv        
+from tpFInalRLSpider.zenviroments.enviroment import ENV_VARIANTS, get_env_class
 from policy_callback import PolicyMapCallback  
 
 
-def make_env(seed: int = 0, **env_kwargs):
+def parse_args():
+    parser = argparse.ArgumentParser(description="Entrena PPO para Spider con entornos configurables.")
+    parser.add_argument(
+        "--env",
+        choices=list(ENV_VARIANTS),
+        default="sin_obstaculos",
+        help="elige el entorno: sin_obstaculos, obstaculos_sin_lidar o obstaculos_lidar",
+    )
+    return parser.parse_args()
+
+
+def make_env(env_cls, seed: int = 0, **env_kwargs):
     def _init():
-        env = SpiderEnv(**env_kwargs)
-        env = Monitor(env) # Mantenemos el monitor para ver rewards
+        env = env_cls(**env_kwargs)
+        env = Monitor(env)  # Mantenemos el monitor para ver rewards
         env.reset(seed=seed)
         return env
     return _init
 
 
 def main():
+    args = parse_args()
+    env_cls = get_env_class(args.env)
+
     # ---------- CONFIGURACIÓN ----------
-    total_timesteps = 500_000   
+    total_timesteps = 500_000
     n_envs = 4
-    run_name = datetime.now().strftime("run_%Y%m%d_%H%M%S")  # id único por ejecución
-    log_dir = os.path.join("logs_spider", run_name)
-    models_dir = os.path.join("models_spider", run_name)
-    policy_maps_dir = os.path.join("policy_maps", run_name)
+    run_name = datetime.now().strftime(f"{args.env}_%Y%m%d_%H%M%S")  # id único por ejecución
+    log_dir = os.path.join("logs_new", run_name)
+    models_dir = os.path.join("models_new", run_name)
+    policy_maps_dir = os.path.join("policy_maps_new", run_name)
 
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(models_dir, exist_ok=True)
@@ -35,7 +50,7 @@ def main():
     # ---------- ENTORNOS EN PARALELO ----------
     env_kwargs = dict(render_mode=None)
     env = SubprocVecEnv(
-        [make_env(seed=i, **env_kwargs) for i in range(n_envs)]
+        [make_env(env_cls, seed=i, **env_kwargs) for i in range(n_envs)]
     )
 
     # ---------- MODELO PPO ----------
@@ -65,13 +80,14 @@ def main():
     policy_cb = PolicyMapCallback(
         freq=5_000,             
         save_path=policy_maps_dir,
-        verbose=1
+        verbose=1,
+        env_cls=env_cls,
     )
 
     checkpoint_cb = CheckpointCallback(
         save_freq=5_000 // n_envs,   
         save_path=models_dir,
-        name_prefix="ppo_spider"
+        name_prefix=f"ppo_spider_{args.env}"
     )
 
     callbacks = [policy_cb, checkpoint_cb]
@@ -84,7 +100,7 @@ def main():
     )
 
     # ---------- GUARDAR MODELO FINAL ----------
-    final_model_path = os.path.join(models_dir, "ppo_spider_final")
+    final_model_path = os.path.join(models_dir, f"ppo_spider_final_{args.env}")
     model.save(final_model_path)
     print(f"Modelo final guardado en: {final_model_path}.zip")
 

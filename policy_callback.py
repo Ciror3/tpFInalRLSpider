@@ -11,16 +11,17 @@ class PolicyMapCallback(BaseCallback):
     """
     Callback que cada 'freq' timesteps genera y guarda un policy map.
     """
-    def __init__(self, freq=50000, save_path="policy_maps", verbose=1):
+    def __init__(self, freq=50000, save_path="policy_maps", verbose=1, env_cls=None):
         super().__init__(verbose)
         self.freq = freq
         self.save_path = save_path
+        self.env_cls = env_cls or SpiderEnv
 
     def _init_callback(self):
         import os
         os.makedirs(self.save_path, exist_ok=True)
         # Creamos el entorno solo para generar los maps
-        self.eval_env = SpiderEnv(render_mode=None)
+        self.eval_env = self.env_cls(render_mode=None)
 
     def _on_step(self) -> bool:
         if self.n_calls % self.freq != 0:
