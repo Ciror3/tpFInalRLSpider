@@ -40,6 +40,13 @@ def parse_args():
         help="device para stable-baselines3: auto, cpu o cuda",
     )
     parser.add_argument(
+        "--verbose",
+        type=int,
+        default=1,
+        choices=[0, 1, 2],
+        help="nivel de logging de Stable-Baselines3",
+    )
+    parser.add_argument(
         "--run-name",
         default=None,
         help="nombre opcional para la corrida",
@@ -53,6 +60,11 @@ def parse_args():
         "--no-previous-action",
         action="store_true",
         help="desactiva el one-hot del movimiento anterior en la observacion",
+    )
+    parser.add_argument(
+        "--zero-previous-action",
+        action="store_true",
+        help="mantiene el one-hot en la observacion pero lo fuerza siempre a cero",
     )
     parser.add_argument(
         "--checkpoint-freq",
@@ -184,6 +196,8 @@ def main():
     n_envs = int(args.n_envs)
     if n_envs < 1:
         raise ValueError("--n-envs debe ser mayor o igual a 1")
+    if args.no_previous_action and args.zero_previous_action:
+        raise ValueError("Usar --no-previous-action o --zero-previous-action, no ambos.")
 
     run_name = args.run_name or datetime.now().strftime("previous_steps_%Y%m%d_%H%M%S")
     log_dir = os.path.join("logs_previous_steps", run_name)
@@ -198,6 +212,7 @@ def main():
         render_mode=None,
         calibration_path=args.calibration_path,
         include_previous_action=not args.no_previous_action,
+        zero_previous_action=args.zero_previous_action,
     )
 
     env = build_vec_env(n_envs=n_envs, seed=args.seed, **env_kwargs)
@@ -219,7 +234,7 @@ def main():
             net_arch=[dict(pi=[64, 64], vf=[64, 64])],
             activation_fn=torch.nn.Tanh,
         ),
-        verbose=0,
+        verbose=args.verbose,
         tensorboard_log=log_dir,
         device=args.device,
         seed=args.seed,

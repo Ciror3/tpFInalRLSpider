@@ -1,15 +1,20 @@
 import argparse
 import os
 import sys
+import time
 from dataclasses import dataclass
 
 import numpy as np
 
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-ZENV_DIR = os.path.join(CURRENT_DIR, "zenviroments")
-if ZENV_DIR not in sys.path:
-    sys.path.insert(0, ZENV_DIR)
+ENV_DIRS = [
+    os.path.join(CURRENT_DIR, "enviroments"),
+    os.path.join(CURRENT_DIR, "zenviroments"),
+]
+for env_dir in ENV_DIRS:
+    if os.path.isdir(env_dir) and env_dir not in sys.path:
+        sys.path.insert(0, env_dir)
 
 from enviroment import ENV_VARIANTS, get_env_class
 
@@ -34,6 +39,7 @@ ACTION_NAMES = {
 class PlanningState:
     target_pos: np.ndarray
     obstacles: np.ndarray
+    previous_motion: str | None = None
 
 
 @dataclass
@@ -175,10 +181,11 @@ class DiscreteTreeSearchController:
         return PlanningState(
             target_pos=np.asarray(env.target_pos, dtype=np.float64).copy(),
             obstacles=np.asarray(obstacles, dtype=np.float64).copy(),
+            previous_motion=getattr(env, "previous_motion_name", None),
         )
 
     def _simulate_action(self, env, state, action):
-        _, movement = env.commands[action]
+        _, movement = self._movement_for_action(env, state, action)
         dx, dy, dtheta = np.asarray(movement, dtype=np.float64)
         target = self._transform_points(state.target_pos.reshape(1, 2), dtheta, dx, dy)[0]
 
@@ -186,7 +193,27 @@ class DiscreteTreeSearchController:
         if obstacles.size:
             obstacles[:, :2] = self._transform_points(obstacles[:, :2], dtheta, dx, dy)
 
-        return PlanningState(target_pos=target, obstacles=obstacles)
+        return PlanningState(
+            target_pos=target,
+            obstacles=obstacles,
+            previous_motion=self._next_previous_motion(env, action, state.previous_motion),
+        )
+
+    @staticmethod
+    def _movement_for_action(env, state, action):
+        commands = env.commands
+        if action in commands:
+            return commands[action]
+
+        previous_key = state.previous_motion or "__initial__"
+        return commands[previous_key][action]
+
+    @staticmethod
+    def _next_previous_motion(env, action, fallback):
+        motion_to_action = getattr(env, "motion_to_action", None)
+        if motion_to_action is None:
+            return fallback
+        return ACTION_NAMES.get(action, fallback)
 
     @staticmethod
     def _transform_points(points, dtheta, dx, dy):
@@ -247,9 +274,14 @@ def evaluate_controller(env_cls, args):
     collisions = 0
     returns = []
     steps = []
+    wall_times = []
+
+    total_start_time = time.perf_counter()
 
     for episode in range(args.episodes):
         env = env_cls(render_mode=args.render_mode, max_steps=args.max_steps)
+        episode_start_time = time.perf_counter()
+        np.random.seed(args.seed + episode)
         obs, _ = env.reset(seed=args.seed + episode)
         done = False
         info = {}
@@ -276,6 +308,7 @@ def evaluate_controller(env_cls, args):
         collisions += int(collision)
         returns.append(episode_return)
         steps.append(env.step_count)
+        wall_times.append(time.perf_counter() - episode_start_time)
 
         should_print_progress = (
             args.progress_every > 0
@@ -302,6 +335,7 @@ def evaluate_controller(env_cls, args):
         env.close()
 
     n = max(args.episodes, 1)
+    total_wall_time = time.perf_counter() - total_start_time
     return {
         "episodes": args.episodes,
         "success_rate": successes / n,
@@ -310,6 +344,9 @@ def evaluate_controller(env_cls, args):
         "std_reward": float(np.std(returns)) if returns else 0.0,
         "avg_steps": float(np.mean(steps)) if steps else 0.0,
         "std_steps": float(np.std(steps)) if steps else 0.0,
+        "avg_wall_time_sec": float(np.mean(wall_times)) if wall_times else 0.0,
+        "std_wall_time_sec": float(np.std(wall_times)) if wall_times else 0.0,
+        "total_wall_time_sec": float(total_wall_time),
     }
 
 
@@ -366,6 +403,7 @@ def main():
     print("Tree-search baseline final")
     print(f"env={args.env} episodes={args.episodes} horizon={args.horizon} beam_width={args.beam_width}")
     print(f"avg_steps={metrics['avg_steps']:.2f} +- {metrics['std_steps']:.2f}")
+    print(f"avg_wall_time_sec={metrics['avg_wall_time_sec']:.4f} +- {metrics['std_wall_time_sec']:.4f}")
     print(f"avg_reward={metrics['avg_reward']:.4f} +- {metrics['std_reward']:.4f}")
     print(f"success_rate={metrics['success_rate']:.4f}")
     print(f"collision_rate={metrics['collision_rate']:.4f}")

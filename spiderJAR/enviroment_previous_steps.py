@@ -225,6 +225,7 @@ class SpiderEnv(gym.Env):
         render_mode=None,
         calibration_path=None,
         include_previous_action=True,
+        zero_previous_action=False,
     ):
         self.world_size_x = float(map_shape_x)
         self.world_size_y = float(map_shape_y)
@@ -234,6 +235,7 @@ class SpiderEnv(gym.Env):
         half_y = self.world_size_y / 2.0
 
         self.include_previous_action = bool(include_previous_action)
+        self.zero_previous_action = bool(zero_previous_action)
         self.previous_action_dim = len(ACTION_METADATA) if self.include_previous_action else 0
         obs_low = [np.array([-half_x, -half_y], dtype=np.float32)]
         obs_high = [np.array([half_x, half_y], dtype=np.float32)]
@@ -358,7 +360,7 @@ class SpiderEnv(gym.Env):
             return target_obs
 
         previous_action_obs = np.zeros(self.previous_action_dim, dtype=np.float32)
-        if self.previous_action is not None:
+        if self.previous_action is not None and not self.zero_previous_action:
             previous_action_obs[self.previous_action] = 1.0
         return np.concatenate([target_obs, previous_action_obs])
 

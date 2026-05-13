@@ -29,15 +29,12 @@
 
 \title{S.P.I.D.E.R.: Control de un Robot Hexápodo mediante Aprendizaje por Refuerzo}
 
-\author{\IEEEauthorblockN{Lisandro Morales Arce, Facundo Gabriel Vulcano y Ciro Russi}
-\IEEEauthorblockA{Universidad de San Andrés\\
-Aprendizaje Reforzado\\
-Docentes: Claudio Pose y Gabriel Gregorio Torre}}
+\author{\IEEEauthorblockN{Lisandro Morales Arce y Ciro Russi}}
 
 \maketitle
 
 \begin{abstract}
-Este trabajo presenta el diseño, implementación y evaluación de un agente de aprendizaje reforzado para controlar un robot hexápodo en una tarea de navegación hacia un objetivo. El sistema combina un entorno de simulación personalizado, una política entrenada con Proximal Policy Optimization (PPO), calibración de movimientos mediante OptiTrack y una arquitectura de comunicación basada en ROS 2 y ESP32 para transferir la política al hardware real. Como aportes adicionales, se introduce un modelo de dinámica condicionado por el movimiento previo, que captura dependencias mecánicas entre comandos consecutivos, y un baseline de planificación discreta por búsqueda en árbol sobre el mismo espacio de acciones usado por PPO. Se describen las decisiones de modelado del MDP, la función de recompensa, el proceso experimental de depuración \textit{sim-to-real} y los principales resultados obtenidos a partir de curvas de entrenamiento, mapas de política y pruebas sobre el robot físico.
+Este trabajo presenta el diseño, implementación y evaluación de un agente de aprendizaje reforzado para el control de un robot hexápodo en una tarea de navegación hacia un objetivo. El sistema combina un entorno de simulación personalizado, una política entrenada con Proximal Policy Optimization (PPO), calibración de movimientos mediante OptiTrack y una arquitectura de comunicación basada en ROS 2 y ESP32 para transferir la política al hardware real. Como aportes adicionales, se introduce un modelo de dinámica condicionado por el movimiento previo, que captura dependencias mecánicas entre comandos consecutivos, y un baseline de planificación discreta por búsqueda en árbol sobre el mismo espacio de acciones usado por PPO. Se describen las decisiones de modelado del MDP, la función de recompensa, el proceso experimental de depuración \textit{sim-to-real} y los principales resultados obtenidos a partir de curvas de entrenamiento, mapas de política y pruebas sobre el robot físico.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -47,10 +44,8 @@ aprendizaje reforzado, PPO, robótica, hexápodo, ROS 2, sim-to-real
 \IEEEpeerreviewmaketitle
 
 \section{Introducción}
-Este trabajo detalla el diseño, implementación y evaluación de un agente basado en aprendizaje reforzado para el control de un robot hexápodo en un espacio bidimensional, sobre el cual se encuentra un \textit{target} que la araña tendrá como objetivo.
-
-El objetivo es entrenar un agente capaz de seleccionar comandos discretos para alcanzar el \textit{target} mediante PPO y transferir esa política al robot físico usando mediciones externas de pose y comunicación inalámbrica con el controlador de la plataforma.
-
+En este trabajo se  el diseño implementación y evaluación de un agente basado en aprendizaje reforzado para el control de un robot hexápodo en un espacio bidimensional, sobre el cual se encuentra un \textit{target} que la araña tendrá como objetivo.\\
+El objetivo es entrenar un agente capaz de seleccionar comandos discretos para alcanzar el \textit{target} mediante PPO y transferir esa política al robot físico usando mediciones externas de pose y comunicación inalámbrica con el controlador de la plataforma.\\
 Las principales contribuciones del proyecto son: (i) un entorno de simulación compatible con \texttt{Gym} para navegación local de un robot hexápodo con acciones discretas reales, (ii) una política PPO transferible al hardware mediante un pipeline OptiTrack--ROS2--ESP32, (iii) una extensión del entorno que incorpora memoria del comando anterior para representar transiciones dependientes de la postura mecánica, y (iv) un baseline de planificación discreta que permite comparar la política aprendida contra un controlador no aprendido con acceso al modelo simulado.
 
 \section{Sistema Robótico}
@@ -70,23 +65,20 @@ Para enviar dichos comandos en UART utilizamos una placa con microcontrolador ES
 La notebook computa los movimientos de la política según las observaciones disponibles. Las observaciones se obtienen de un conjunto de cámaras operadas con el programa OptiTrack, que permite triangular la posición de objetos en tiempo real. En el contexto de este proyecto, OptiTrack permitió obtener la posición de la araña y del objetivo en un espacio de coordenadas tridimensional. Dichas posiciones eran compartidas con la notebook para procesarlas y luego predecir los movimientos.
 
 \section{Método Propuesto}
-El núcleo del comportamiento autónomo del agente reside en una política entrenada mediante el algoritmo \textit{Proximal Policy Optimization} (PPO). Para la implementación de este algoritmo utilizamos la librería \texttt{Stable-Baselines3} \cite{stable-baselines3}, que provee una versión robusta y ampliamente utilizada de PPO, así como herramientas estandarizadas para el entrenamiento y evaluación de agentes en entornos de tipo \texttt{Gym}.
-
-En nuestro caso, el espacio de observación está definido por la posición relativa del \textit{target} en la terna del robot. En la implementación final, la observación entregada a la red neuronal consiste en un vector continuo que codifica la distancia y dirección del objetivo respecto del agente, por ejemplo, las coordenadas $(x, y)$ del \textit{target} en el marco local del robot y, en versiones extendidas, el ángulo de desalineación. Este vector se normaliza y se proporciona como entrada a la política de PPO, que lo procesa mediante una red neuronal \textit{feed-forward}.
-
-El espacio de acción es discreto y corresponde directamente a los comandos de movimiento disponibles en la araña física. Se definieron 12 acciones, cada una asociada a una instrucción concreta. En el entorno de \texttt{Gym}, este espacio se modela como un \texttt{Discrete(12)}, de manera que la política de PPO produce una distribución categórica sobre estas 12 acciones posibles en cada paso de tiempo.
-
+El núcleo del comportamiento autónomo del agente reside en una política entrenada mediante el algoritmo \textit{Proximal Policy Optimization} (PPO). Para la implementación de este algoritmo utilizamos la librería \texttt{Stable-Baselines3} \cite{stable-baselines3}, que provee una versión robusta y ampliamente utilizada de PPO, así como herramientas estandarizadas para el entrenamiento y evaluación de agentes en entornos de tipo \texttt{Gym}.\\
+En nuestro caso, el espacio de observación está definido por la posición relativa del \textit{target} en la terna del robot. En la implementación final, la observación entregada a la red neuronal consiste en un vector continuo que codifica la distancia y dirección del objetivo respecto del agente, por ejemplo, las coordenadas $(x, y)$ del \textit{target} en el marco local del robot y, en versiones extendidas, el ángulo de desalineación. Este vector se normaliza y se proporciona como entrada a la política de PPO, que lo procesa mediante una red neuronal \textit{feed-forward}. \newline
+El espacio de acción es discreto y corresponde directamente a los comandos de movimiento disponibles en la araña física. Se definieron 12 acciones, cada una asociada a una instrucción concreta. En el entorno de \texttt{Gym}, este espacio se modela como un \texttt{Discrete(12)}, de manera que la política de PPO produce una distribución categórica sobre estas 12 acciones posibles en cada paso de tiempo. \\\\
 Para optimizar el desempeño del agente, se llevó a cabo una búsqueda de hiperparámetros utilizando la infraestructura de \texttt{RL Zoo} (\texttt{rl-zoo3}) \cite{rl-zoo3}. Esta herramienta actúa como un envoltorio sobre \texttt{Stable-Baselines3} y permite automatizar experimentos de entrenamiento variando hiperparámetros clave de PPO, tales como la tasa de aprendizaje, el tamaño de lote (\textit{batch size}), el número de pasos por actualización (\textit{n\_steps}), el factor de descuento $\gamma$, el coeficiente de entropía y el rango de recorte (\textit{clip range}), entre otros. Mediante esta búsqueda sistemática se seleccionó una configuración de hiperparámetros que equilibrara estabilidad y velocidad de convergencia, mejorando la calidad de la política aprendida en el entorno propuesto.
 
 \subsection{Definición del Entorno}
-Para llevar adelante el proyecto fue necesario desarrollar un entorno propio que capturara de manera adecuada la interacción entre el agente, la araña, y el objetivo, el \textit{target}. El primer paso consistió en definir las dimensiones del mapa, tomando como referencia el espacio físico real donde posteriormente se realizarían las pruebas. Esto permitió establecer un área maniobrable consistente y reproducible dentro de la simulación.
+El entorno desarrollado captura la interacción entre el agente, la araña y el objetivo, o \textit{target}. Las dimensiones del mapa se definieron a partir del espacio físico real de evaluación, lo que permitió establecer un área maniobrable consistente y reproducible dentro de la simulación.
 
 El estado del entorno se modeló a partir de dos objetos principales: la araña y el \textit{target}. Para simplificar el diseño y facilitar el aprendizaje, se fijó la posición de la araña en el origen del sistema de coordenadas locales. De este modo, la observación del agente se reduce a las coordenadas relativas del \textit{target} respecto de la araña, expresadas como $(x,y)$ en la terna local del robot. Esta representación permite capturar de forma directa la relación espacial relevante para la tarea, evita trabajar con posiciones absolutas en el mapa y reduce la complejidad del estado.
 
 Las acciones disponibles para el agente están directamente vinculadas a los comandos reales que puede ejecutar la araña física. Cada movimiento corresponde a un código específico, por ejemplo, avanzar utiliza el comando \texttt{252}. Con el fin de mantener compatibilidad entre la simulación y el hardware final, se definió un espacio discreto de 12 acciones, donde cada una representa un comando de movimiento permitido por la plataforma. Estas acciones pueden agruparse en rotaciones puras, movimientos hacia adelante y atrás, y movimientos rápidos.
 
 \subsection{Dinámica Condicionada por el Movimiento Previo}
-Durante la calibración con el robot físico observamos que el desplazamiento producido por un comando no depende únicamente del comando actual. En un hexápodo, la postura de las patas, la fase del patrón de marcha y la transición desde el movimiento anterior afectan el desplazamiento lineal y angular resultante. Por este motivo se implementó una variante del entorno que incorpora explícitamente el movimiento previo en la dinámica.
+La dinámica del robot físico no queda completamente determinada por el comando actual. En un hexápodo, la postura de las patas, la fase del patrón de marcha y la transición desde el movimiento anterior afectan el desplazamiento lineal y angular resultante. La variante extendida del entorno incorpora explícitamente el movimiento previo para representar esta dependencia.
 
 En el entorno original, cada acción $a_t$ se asocia con un único desplazamiento rígido $(\Delta x,\Delta y,\Delta\theta)$. En la variante con pasos anteriores, la tabla de comandos pasa a indexarse por el par formado por el movimiento previo y la acción actual:
 
@@ -96,7 +88,7 @@ En el entorno original, cada acción $a_t$ se asocia con un único desplazamient
     \label{eq:previous-motion-model}
 \end{equation}
 
-Para el primer paso de cada episodio se utiliza un estado inicial especial, denotado como \texttt{\_\_initial\_\_}. Luego de ejecutar una acción, el entorno actualiza el nombre del movimiento previo y lo utiliza para seleccionar la fila correspondiente de la matriz de transiciones en el siguiente paso. De esta forma, el simulador no representa cada comando como un efecto promedio aislado, sino como una transición dependiente del historial inmediato.
+Para el primer paso de cada episodio se utiliza un estado inicial especial. Luego de ejecutar una acción, el entorno actualiza el nombre del movimiento previo y lo utiliza para seleccionar la fila correspondiente de la matriz de transiciones en el siguiente paso. De esta forma, el simulador no representa cada comando como un efecto promedio aislado, sino como una transición dependiente del historial inmediato.
 
 Esta modificación también cambia el espacio de observación. Además de las coordenadas relativas del objetivo, se agrega una codificación \textit{one-hot} de la acción previa. Con 12 acciones disponibles, la observación extendida queda:
 
@@ -122,7 +114,7 @@ La función de recompensa fue diseñada para fomentar un comportamiento eficient
 El término de progreso en distancia calcula la diferencia entre la distancia previa y la distancia actual al \textit{target}. Acercarse genera un refuerzo positivo, mientras que alejarse produce un valor negativo. El costo por paso desalienta que el agente prolongue el episodio sin necesidad. La mejora de orientación se aplica cuando el agente reduce la distancia y evalúa si también mejoró su alineación con la posición del objetivo. La penalización por retroceso evita oscilaciones y trayectorias innecesariamente largas, mientras que el bonus por éxito incentiva completar la tarea de navegación.
 
 \subsection{Baseline de Planificación Discreta}
-Para contextualizar el desempeño de PPO se implementó un controlador no aprendido basado en búsqueda en árbol sobre el mismo espacio discreto de 12 acciones. Aunque el archivo de implementación se denomina \texttt{dwa\_baseline.py}, el controlador utilizado en esta versión opera como un planificador local discreto: expande secuencias candidatas de comandos, simula sus efectos con el modelo del entorno y selecciona la secuencia con mayor recompensa acumulada.
+Para contextualizar el desempeño de PPO se implementó un controlador no aprendido basado en búsqueda en árbol sobre el mismo espacio discreto de 12 acciones. El controlador utilizado en esta versión opera como un planificador local discreto: expande secuencias candidatas de comandos, simula sus efectos con el modelo del entorno y selecciona la secuencia con mayor recompensa acumulada.
 
 El planificador mantiene un estado interno compuesto por la posición relativa del objetivo y, cuando corresponde, la posición relativa de obstáculos. A partir de ese estado, simula cada acción aplicando la misma transformación geométrica usada por el entorno:
 
@@ -135,16 +127,16 @@ donde $p_t$ es la posición relativa del objetivo en la terna del robot. Para pu
 
 La búsqueda se realiza hasta un horizonte $H$ y puede limitarse mediante un \textit{beam width} $B$, conservando sólo las mejores ramas en cada profundidad. Si se encuentra una secuencia exitosa, el controlador puede detener la expansión en esa profundidad. El resultado del planificador es una secuencia de acciones candidata; en modo de replanteo, se ejecuta sólo la primera acción y se vuelve a planificar en el siguiente paso.
 
-Este baseline cumple dos roles experimentales. Primero, provee una referencia de desempeño para comparar la política aprendida contra un método que no requiere entrenamiento pero sí acceso al modelo dinámico. Segundo, ayuda a diagnosticar si los fallos observados provienen del algoritmo de aprendizaje o de inconsistencias en el modelo de movimiento, ya que ambos controladores comparten la misma dinámica simulada pero toman decisiones mediante mecanismos distintos.
+Este baseline cumple dos roles experimentales. Primero, provee una referencia de desempeño para comparar la política aprendida contra un método que no requiere entrenamiento pero sí acceso al modelo dinámico. Segundo, ayuda a diagnosticar si las diferencias observadas provienen del algoritmo de aprendizaje o del modelo de movimiento, ya que ambos controladores comparten la misma dinámica simulada pero toman decisiones mediante mecanismos distintos.
 
 \section{Configuración Experimental}
-La transición del modelo simulado al hardware real presentó desafíos significativos, particularmente en la transformación de coordenadas entre el sistema global de referencia y el marco local del agente. Además, fue necesario realizar mediciones de movimiento para cada comando, lo cual agregó incertidumbre al problema.
+La transición del modelo simulado al hardware real presentó desafíos significativos, particularmente en la transformación de coordenadas entre el sistema global de referencia y el marco local del agente. Además, fue necesario realizar mediciones de movimiento para cada comando, lo cual hizo central la etapa de calibración.
 
-En cuanto al software, el primer aspecto abordado fue la construcción del entorno. Desde el inicio se decidió simplificar el espacio de estados con el objetivo de facilitar y acelerar el entrenamiento. Para la tarea de navegación considerada, se determinó que la información esencial era la pose relativa del \textit{target} respecto del robot, compuesta por las coordenadas $x$, $y$ y el ángulo $\theta$.
+El entorno se diseñó con un espacio de estados compacto para facilitar el entrenamiento y concentrar la política en la información relevante para la navegación. Para la tarea considerada, la observación queda definida por la pose relativa del \textit{target} respecto del robot, compuesta por las coordenadas $x$, $y$ y el ángulo $\theta$.
 
 Bajo esta representación, el robot se asume siempre en el origen del sistema de coordenadas local, mientras que la observación corresponde exclusivamente a la posición del \textit{target} transformada desde la terna global a la terna del robot. De este modo, el agente percibe únicamente la distancia y dirección relativas al objetivo, eliminando información redundante y reduciendo la dimensionalidad del espacio de estados.
 
-Una vez definida la estructura de la observación, el siguiente paso fue diseñar una función de recompensa adecuada. La primera aproximación consistió en utilizar la distancia negativa al \textit{target} junto con un término que premiara la alineación del robot hacia el objetivo. No obstante, esta combinación presentó un problema: el agente encontró una manera de explotar la recompensa. En lugar de completar la tarea, aprendía a acercarse al \textit{target} y luego realizar pequeñas oscilaciones angulares, aprovechando el término de orientación para acumular recompensa sin llegar nunca a la región de éxito.
+La función de recompensa final se formuló en términos diferenciales para priorizar el progreso efectivo hacia el objetivo. Las configuraciones basadas en distancia absoluta y alineación instantánea pueden favorecer óptimos locales cerca de la región de éxito; la señal utilizada compara cada estado con el paso anterior y recompensa mejoras simultáneas en distancia y orientación.
 
 \begin{figure}[!t]
     \centering
@@ -155,66 +147,69 @@ Una vez definida la estructura de la observación, el siguiente paso fue diseña
     \subfloat[Cantidad de pasos por episodio.]{%
         \safeincludegraphics[width=0.48\linewidth]{curva_steps.jpg}%
         \label{fig:steps-curve}}
-    \caption{Steps degenerados y recompensa constantemente mejorada.}
+    \caption{Curvas de entrenamiento en una configuración preliminar de recompensa.}
     \label{fig:comparacion-alg}
 \end{figure}
 
-Posteriormente reformulamos la función de recompensa para evitar los problemas detectados. En lugar de utilizar valores absolutos de distancia y orientación, la nueva versión emplea la diferencia entre el paso previo y el paso actual, tanto en distancia como en alineación. De este modo, el agente es recompensado únicamente por mejorar su situación relativa respecto del \textit{target}, eliminando la posibilidad de explotar el término de orientación sin avanzar hacia el objetivo.
+La Fig.~\ref{fig:comparacion-alg} ilustra el comportamiento de una configuración preliminar, utilizada como referencia para ajustar el diseño de la recompensa. La formulación final favorece trayectorias más directas y reduce oscilaciones sin progreso.
 
-Si bien esta modificación resolvió el problema inicial, reveló un nuevo comportamiento indeseado durante el análisis del \textit{policy map}. El agente comenzaba a elegir sistemáticamente la acción de desplazarse rápidamente hacia atrás. Observamos que el robot sólo realizaba rotaciones y luego ejecutaba la acción de \textit{fast backward} de manera repetida. La causa estaba en un error de configuración: habíamos establecido por equivocación un desplazamiento de 70 cm para esa acción, en lugar de los 7 cm reales. Debido a esta discrepancia, el agente evaluaba esa acción como altamente beneficiosa, ya que producía un cambio de posición considerable dentro de la simulación.
+Los \textit{policy maps} se utilizaron como herramienta de validación cualitativa de la dinámica simulada. En particular, la calibración de los desplazamientos lineales y angulares resulta determinante para que la política asigne acciones de manera coherente con el comportamiento físico de la plataforma.
 
 \begin{figure}[!t]
     \centering
     \safeincludegraphics[width=\linewidth]{policy_map.png}
-    \caption{Mapa de política con predominio de las acciones 9 (\textit{backward}), 0 (\textit{pivot left}) y 1 (\textit{pivot right}).}
+    \caption{Mapa de política correspondiente a una configuración preliminar del modelo de movimiento.}
     \label{fig:policy-map}
 \end{figure}
 
-Una vez corregido este valor y mejoradas las mediciones reales mediante el sistema de captura de movimiento OptiTrack, la política aprendida dejó de mostrar este sesgo y comenzó a utilizar el conjunto completo de acciones de forma coherente con la dinámica física del robot.
-
-Finalmente, antes de obtener la política definitiva, detectamos un error en la configuración de los comandos angulares: las acciones de \textit{pivot right} y \textit{pivot left} estaban intercambiadas en la implementación. Esto implicaba que, al seleccionar una acción de giro hacia la derecha, el robot en realidad rotaba hacia la izquierda, y viceversa. Como consecuencia, parte del comportamiento aprendido por la política estaba adaptado a una dinámica de rotación incorrecta. Una vez identificado el problema, corregimos la asignación de estos comandos y fue necesario reentrenar el agente, incorporando estas dificultades como parte del proceso iterativo de depuración entre el entorno simulado y el control real del robot.
+La política definitiva se entrenó con mediciones refinadas mediante OptiTrack y con una correspondencia validada entre comandos de giro y desplazamientos observados. Esta calibración cierra el ciclo entre el entorno simulado y el robot real, incorporando al modelo transiciones más representativas de la plataforma física.
 
 \section{Resultados y Discusión}
 Se analizó el desempeño final a partir de tres fuentes: las corridas de \textit{RL Zoo}, los mapas de política obtenidos durante el entrenamiento y las pruebas de transferencia a hardware.
 
 \subsection{Curvas de Entrenamiento}
-En la búsqueda de hiperparámetros con \textit{TPE median pruner} se observaron dos comportamientos claros en los reportes \texttt{logs/ppo/report\_*.csv}: varias combinaciones divergían o quedaban estancadas en recompensas muy negativas, mientras que un subconjunto de configuraciones con $\gamma$ alto y lotes pequeños convergía de forma estable. La mejor corrida completada alcanzó una recompensa promedio de episodio positiva de 35.18, manteniendo el número de pasos acotado. Esto indicó que el \textit{shaping} diferencial de distancia y orientación resolvió el problema de oscilaciones sin progreso. Sobre esa región del espacio de hiperparámetros se fijó la configuración definitiva usada en \texttt{spider.py}.
+En la búsqueda de hiperparámetros con \textit{TPE median pruner} se observaron dos comportamientos claros: varias combinaciones convergían lentamente o quedaban estancadas en recompensas muy negativas, mientras que un subconjunto de configuraciones con $\gamma$ alto y lotes pequeños convergía de forma estable. La mejor corrida completada alcanzó una recompensa promedio de episodio positiva de 35.18, manteniendo el número de pasos acotado. Esto indicó que el \textit{shaping} diferencial de distancia y orientación favoreció trayectorias con progreso efectivo hacia el objetivo. Sobre esa región del espacio de hiperparámetros se fijó la configuración definitiva del entrenamiento final.
 
 \subsection{Mapas de Política}
-Las figuras generadas automáticamente, como la Fig.~\ref{fig:policy-map}, mostraron la estrategia espacial aprendida. En la versión final, el mapa se organiza de manera interpretable: el frente del robot concentra acciones de avance rápido y recto, mientras que los sectores laterales activan pivotes y combinaciones de giro suave. Tras corregir la escala del comando de \textit{fast backward}, la política dejó de presentar zonas extensas asociadas a retroceso y distribuyó el uso de las 12 acciones, lo que sugiere una navegación más balanceada. También se redujeron las discontinuidades abruptas entre regiones de acción, señal de mayor suavidad en la política.
+Las figuras generadas automáticamente, como la Fig.~\ref{fig:policy-map}, mostraron la estrategia espacial aprendida. En la versión final, el mapa se organiza de manera interpretable: el frente del robot concentra acciones de avance rápido y recto, mientras que los sectores laterales activan pivotes y combinaciones de giro suave. La política distribuyó el uso de las 12 acciones de forma coherente con la dinámica calibrada, lo que sugiere una navegación más balanceada. También se redujeron las discontinuidades abruptas entre regiones de acción, señal de mayor suavidad en la política.
 
 \subsection{Transferencia Sim-to-Real}
-Al conectar la política entrenada con el pipeline OptiTrack--ROS2--ESP32, el comportamiento observado en hardware siguió las tendencias del simulador: el robot se orienta primero hacia el objetivo y luego alterna entre avances rectos y giros cortos. Los fallos principales provinieron de desalineaciones de terna y del retardo entre lectura de posición y envío de comando; ambos efectos introdujeron una deriva que a veces desviaba la trayectoria cerca del objetivo. El uso de recompensas diferenciales ayudó a corregir estos desvíos en línea, pero persiste una brecha cuando hay ruido en las mediciones o superficies con poca fricción.
+Al conectar la política entrenada con el pipeline OptiTrack--ROS2--ESP32, el comportamiento observado en hardware siguió las tendencias del simulador: el robot se orienta primero hacia el objetivo y luego alterna entre avances rectos y giros cortos. Las principales fuentes de discrepancia provinieron de desalineaciones de terna y del retardo entre lectura de posición y envío de comando; ambos efectos introdujeron deriva cerca del objetivo. El uso de recompensas diferenciales ayudó a compensar estos desvíos en línea, aunque persiste una brecha cuando hay ruido en las mediciones o superficies con poca fricción.
 
 \subsection{Comparación con Planificación Discreta}
 El baseline de búsqueda discreta permite separar dos preguntas: si la dinámica calibrada permite generar trayectorias razonables hacia el objetivo, y si PPO logra aproximar ese comportamiento sin realizar planificación explícita en tiempo de ejecución. En simulación, el planificador evalúa múltiples secuencias por decisión y por lo tanto puede actuar como una referencia local fuerte. Su desventaja es el costo computacional, que crece con $O(BH|\mathcal{A}|)$ en la versión con \textit{beam search}, donde $|\mathcal{A}|=12$.
 
-El protocolo de evaluación compara ambos controladores usando las mismas semillas, posiciones iniciales y límite de pasos. Las métricas consideradas son tasa de éxito, tasa de colisión, recompensa acumulada, pasos promedio hasta alcanzar el objetivo y tiempo promedio de decisión por acción. La Tabla~\ref{tab:controller-comparison} resume las diferencias operativas entre ambos enfoques.
+El protocolo de evaluación compara ambos controladores usando las mismas semillas, posiciones iniciales y límite de pasos. Las métricas consideradas son tasa de éxito, tasa de colisión, recompensa acumulada, pasos promedio hasta alcanzar el objetivo y tiempo computacional de decisión. En esta comparación, el \textit{wall time} no representa la duración física del movimiento ni el tiempo completo de un paso del entorno. Para PPO, mide el tiempo requerido para ejecutar la inferencia de la red y seleccionar una acción; para la búsqueda discreta, mide el tiempo requerido para expandir y evaluar secuencias candidatas.
 
 \begin{table}[!t]
-\caption{Protocolo de Comparación entre Controladores}
+\caption{Comparación entre PPO y Búsqueda Discreta}
 \label{tab:controller-comparison}
 \centering
 \renewcommand{\arraystretch}{1.15}
-\begin{tabular}{lcc}
+\begin{tabular}{lcccc}
 \hline
-Controlador & Entrenamiento & Costo en ejecución \\
+Controlador & Éxito & Colisión & Pasos & Tiempo [s] \\
 \hline
-PPO & Sí & Una inferencia de red \\
-Búsqueda discreta & No & Expansión de árbol \\
+PPO & 100\% & 0\% & 28.13 & 0.0072 \\
+Búsqueda discreta & 100\% & 0\% & 31.27 & 4.4420 \\
 \hline
 \end{tabular}
 \end{table}
 
-\subsection{Obstáculos, Colisiones y Sensibilidad}
-La versión del entorno utilizada para los entrenamientos finales incluye obstáculos circulares aleatorios, reportados en la observación como las posiciones relativas de los cinco más cercanos. Durante las primeras fases, las colisiones eran frecuentes; al avanzar el entrenamiento, la política aprendida tiende a rotar y buscar rutas laterales antes de avanzar rápido, lo que se refleja en menos terminaciones por choque. En hardware no se reprodujeron obstáculos físicos, por lo que esta capacidad quedó validada sólo en simulación y se identifica como un punto a completar en trabajos futuros.
+\begin{figure}[!t]
+    \centering
+    \safeincludegraphics[width=\linewidth]{comparison_results/previous_steps/walltime_vs_steps.png}
+    \caption{Relación entre tiempo computacional de decisión y pasos promedio hasta alcanzar el objetivo.}
+    \label{fig:walltime-steps}
+\end{figure}
 
-El sistema resultó sensible a pequeñas inconsistencias en los parámetros de movimiento: la inversión de pivotes y el error de escala en el retroceso rápido cambiaron radicalmente el mapa de acciones. Esto resalta la necesidad de contar con mediciones confiables de desplazamientos y rotaciones, para lo cual OptiTrack ayudó a reducir la varianza, y de mantener sincronía temporal entre el entorno simulado y el real. Aun con estas limitaciones, la política final mostró estabilidad frente a ruido moderado en las observaciones y generalizó sobre distintas posiciones iniciales del \textit{target} dentro del mapa.
+Los resultados muestran que ambos controladores alcanzan una tasa de éxito completa en simulación y sin colisiones bajo este protocolo. Sin embargo, PPO requiere menos pasos promedio y presenta un costo computacional sustancialmente menor, ya que en ejecución sólo realiza una inferencia de red por decisión. En cambio, la búsqueda discreta evalúa múltiples ramas del árbol antes de elegir una acción, lo que aumenta su costo temporal aunque no requiera entrenamiento previo.
+
 
 \section{Conclusiones}
 El proyecto \textsc{S.P.I.D.E.R.} demostró de manera consistente la viabilidad de controlar un robot de elevada complejidad mecánica mediante políticas de aprendizaje por refuerzo entrenadas íntegramente en simulación y transferidas con éxito al hardware real. El desarrollo de un entorno personalizado, la definición de un espacio de estados minimalista y la implementación del algoritmo PPO utilizando \texttt{Stable-Baselines3} permitieron obtener comportamientos estables y reproducibles bajo condiciones físicas reales.
 
-A lo largo del proceso debimos superar diversos desafíos, entre ellos la transformación precisa entre la terna global del sistema OptiTrack y la terna local del robot, la calibración de los comandos motores y la corrección de inconsistencias en la dinámica de rotación y traslación. La incorporación de mediciones fiables mediante OptiTrack, la búsqueda de hiperparámetros con \texttt{RL Zoo}, el modelado condicionado por pasos anteriores y la comparación contra un baseline de planificación discreta resultaron fundamentales para mejorar la estabilidad del entrenamiento y reducir la brecha entre simulación y realidad.
+A lo largo del proceso debimos abordar diversos desafíos, entre ellos la transformación precisa entre la terna global del sistema OptiTrack y la terna local del robot, la calibración de los comandos motores y la validación de la dinámica de rotación y traslación. La incorporación de mediciones fiables mediante OptiTrack, la búsqueda de hiperparámetros con \texttt{RL Zoo}, el modelado condicionado por pasos anteriores y la comparación contra un baseline de planificación discreta resultaron fundamentales para mejorar la estabilidad del entrenamiento y reducir la brecha entre simulación y realidad.
 
 Si bien el sistema funcionó correctamente, el proyecto presenta ciertas limitaciones: el simulador no modela con fidelidad la física real del robot, el entorno carece de obstáculos físicos y no se midió el \textit{wall time} asociado a cada acción, lo que genera discrepancias en la temporalidad real del movimiento. Aun así, los resultados muestran que, incluso con un estado extremadamente simplificado y un conjunto reducido de acciones, el agente es capaz de navegar eficazmente hacia un objetivo utilizando únicamente información relativa local.
 
