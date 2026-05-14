@@ -29,7 +29,7 @@
 
 \title{S.P.I.D.E.R.: Control de un Robot Hexápodo mediante Aprendizaje por Refuerzo}
 
-\author{\IEEEauthorblockN{Lisandro Morales Arce y Ciro Russi}}
+\author{\IEEEauthorblockN{Lisandro Morales Arce y Ciro Russi - \textbf{facu vulcano (Garched API)}}}
 
 \maketitle
 
@@ -49,33 +49,27 @@ El objetivo es entrenar un agente capaz de seleccionar comandos discretos para a
 Las principales contribuciones del proyecto son: (i) un entorno de simulación compatible con \texttt{Gym} para navegación local de un robot hexápodo con acciones discretas reales, (ii) una política PPO transferible al hardware mediante un pipeline OptiTrack--ROS2--ESP32, (iii) una extensión del entorno que incorpora memoria del comando anterior para representar transiciones dependientes de la postura mecánica, y (iv) un baseline de planificación discreta que permite comparar la política aprendida contra un controlador no aprendido con acceso al modelo simulado.
 
 \section{Sistema Robótico}
-Esta sección describe los componentes físicos y lógicos que integran el proyecto S.P.I.D.E.R., incluyendo la comunicación inalámbrica y la estructura de nodos en ROS 2.
-
+Esta sección describe los componentes físicos y lógicos que integran el proyecto S.P.I.D.E.R., incluyendo la comunicación inalámbrica y la estructura de nodos en ROS 2.\\\\
+La araña es un robot de seis patas que cuenta con un controlador que recibe comandos vía UART como un paquete de bytes. Dichos comandos sólo pueden ser números enteros que se corresponden con un conjunto de acciones o \textit{motions} que la araña puede llevar a cabo.\\
 \begin{figure}[!t]
     \centering
     \safeincludegraphics[width=\linewidth]{spider_comunication.png}
     \caption{Arquitectura de comunicación del sistema S.P.I.D.E.R.}
     \label{fig:spider-communication}
 \end{figure}
-
-La araña es un robot de seis patas que cuenta con un controlador que recibe comandos vía UART en un formato de bytes particular para el modelo. Dichos comandos sólo pueden ser números enteros que se corresponden con un conjunto de acciones o \textit{motions} que la araña puede llevar a cabo.
-
-Para enviar dichos comandos en UART utilizamos una placa con microcontrolador ESP32. Desde una notebook, se envían los números enteros asociados a los distintos comandos para accionar la araña hacia la ESP32. La placa traduce el entero en la tira de bytes con el formato esperado por el controlador de la araña y luego envía dicho paquete de datos.
-
+Para enviar dichos comandos en UART utilizamos una placa con microcontrolador ESP32. Desde una notebook, se envían los números enteros asociados a los distintos comandos para accionar la araña hacia la ESP32. La placa traduce el entero en la tira de bytes con el formato esperado por el controlador de la araña y luego envía dicho paquete de datos.\\
 La notebook computa los movimientos de la política según las observaciones disponibles. Las observaciones se obtienen de un conjunto de cámaras operadas con el programa OptiTrack, que permite triangular la posición de objetos en tiempo real. En el contexto de este proyecto, OptiTrack permitió obtener la posición de la araña y del objetivo en un espacio de coordenadas tridimensional. Dichas posiciones eran compartidas con la notebook para procesarlas y luego predecir los movimientos.
 
 \section{Método Propuesto}
-El núcleo del comportamiento autónomo del agente reside en una política entrenada mediante el algoritmo \textit{Proximal Policy Optimization} (PPO). Para la implementación de este algoritmo utilizamos la librería \texttt{Stable-Baselines3} \cite{stable-baselines3}, que provee una versión robusta y ampliamente utilizada de PPO, así como herramientas estandarizadas para el entrenamiento y evaluación de agentes en entornos de tipo \texttt{Gym}.\\
+El núcleo del comportamiento autónomo del agente reside en una política entrenada mediante el algoritmo \textit{Proximal Policy Optimization} (PPO), introducido por Schulman et al. \cite{ppo}. Para la implementación de este algoritmo, utilizamos la librería \texttt{Stable-Baselines3} \cite{stable-baselines3}, que provee una versión robusta y ampliamente utilizada de PPO, así como herramientas estandarizadas para el entrenamiento y evaluación de agentes.\\
 En nuestro caso, el espacio de observación está definido por la posición relativa del \textit{target} en la terna del robot. En la implementación final, la observación entregada a la red neuronal consiste en un vector continuo que codifica la distancia y dirección del objetivo respecto del agente, por ejemplo, las coordenadas $(x, y)$ del \textit{target} en el marco local del robot y, en versiones extendidas, el ángulo de desalineación. Este vector se normaliza y se proporciona como entrada a la política de PPO, que lo procesa mediante una red neuronal \textit{feed-forward}. \newline
-El espacio de acción es discreto y corresponde directamente a los comandos de movimiento disponibles en la araña física. Se definieron 12 acciones, cada una asociada a una instrucción concreta. En el entorno de \texttt{Gym}, este espacio se modela como un \texttt{Discrete(12)}, de manera que la política de PPO produce una distribución categórica sobre estas 12 acciones posibles en cada paso de tiempo. \\\\
-Para optimizar el desempeño del agente, se llevó a cabo una búsqueda de hiperparámetros utilizando la infraestructura de \texttt{RL Zoo} (\texttt{rl-zoo3}) \cite{rl-zoo3}. Esta herramienta actúa como un envoltorio sobre \texttt{Stable-Baselines3} y permite automatizar experimentos de entrenamiento variando hiperparámetros clave de PPO, tales como la tasa de aprendizaje, el tamaño de lote (\textit{batch size}), el número de pasos por actualización (\textit{n\_steps}), el factor de descuento $\gamma$, el coeficiente de entropía y el rango de recorte (\textit{clip range}), entre otros. Mediante esta búsqueda sistemática se seleccionó una configuración de hiperparámetros que equilibrara estabilidad y velocidad de convergencia, mejorando la calidad de la política aprendida en el entorno propuesto.
+El espacio de acción es discreto y corresponde directamente a los comandos de movimiento disponibles en la araña física. Se definieron 12 acciones, cada una asociada a una instrucción concreta. Este espacio se modela de manera que la política de PPO produce una distribución categórica sobre estas 12 acciones posibles en cada paso de tiempo. \\\\
+Para optimizar el desempeño del agente, se llevó a cabo una búsqueda de hiperparámetros utilizando la infraestructura de \texttt{RL Zoo} (\texttt{rl-zoo3}) \cite{rl-zoo3}. Mediante esta búsqueda sistemática se seleccionó una configuración de hiperparámetros que equilibrara estabilidad y velocidad de convergencia, mejorando la calidad de la política aprendida en el entorno propuesto.
 
 \subsection{Definición del Entorno}
-El entorno desarrollado captura la interacción entre el agente, la araña y el objetivo, o \textit{target}. Las dimensiones del mapa se definieron a partir del espacio físico real de evaluación, lo que permitió establecer un área maniobrable consistente y reproducible dentro de la simulación.
-
-El estado del entorno se modeló a partir de dos objetos principales: la araña y el \textit{target}. Para simplificar el diseño y facilitar el aprendizaje, se fijó la posición de la araña en el origen del sistema de coordenadas locales. De este modo, la observación del agente se reduce a las coordenadas relativas del \textit{target} respecto de la araña, expresadas como $(x,y)$ en la terna local del robot. Esta representación permite capturar de forma directa la relación espacial relevante para la tarea, evita trabajar con posiciones absolutas en el mapa y reduce la complejidad del estado.
-
-Las acciones disponibles para el agente están directamente vinculadas a los comandos reales que puede ejecutar la araña física. Cada movimiento corresponde a un código específico, por ejemplo, avanzar utiliza el comando \texttt{252}. Con el fin de mantener compatibilidad entre la simulación y el hardware final, se definió un espacio discreto de 12 acciones, donde cada una representa un comando de movimiento permitido por la plataforma. Estas acciones pueden agruparse en rotaciones puras, movimientos hacia adelante y atrás, y movimientos rápidos.
+El entorno desarrollado captura la interacción entre el agente, la araña y el objetivo, o \textit{target}. Las dimensiones del mapa se definieron a partir del espacio físico real de evaluación, lo que permitió establecer un área maniobrable consistente y reproducible dentro de la simulación.\\ \\
+El estado del entorno se modeló a partir de dos objetos principales: la araña y el \textit{target}. Para simplificar el diseño y facilitar el aprendizaje, se fijó la posición de la araña en el origen del sistema de coordenadas locales. De este modo, la observación del agente se reduce a las coordenadas relativas del \textit{target} respecto a la araña, expresadas como $(x,y)$ en la terna local del robot. Esta representación permite capturar de forma directa la relación espacial relevante para la tarea, evita trabajar con posiciones absolutas en el mapa y reduce la complejidad del estado.\\ \\
+Las acciones disponibles para el agente están directamente vinculadas a los comandos reales que puede ejecutar la araña física. Cada movimiento corresponde a un código específico, por ejemplo, avanzar utiliza el comando \texttt{252}. Con el fin de mantener la compatibilidad entre la simulación y el hardware final, se definió un espacio discreto de 12 acciones, donde cada una representa un comando de movimiento permitido por la plataforma. Estas acciones pueden agruparse en rotaciones puras, movimientos hacia adelante y atrás, y movimientos rápidos.
 
 \subsection{Dinámica Condicionada por el Movimiento Previo}
 La dinámica del robot físico no queda completamente determinada por el comando actual. En un hexápodo, la postura de las patas, la fase del patrón de marcha y la transición desde el movimiento anterior afectan el desplazamiento lineal y angular resultante. La variante extendida del entorno incorpora explícitamente el movimiento previo para representar esta dependencia.
@@ -114,7 +108,7 @@ La función de recompensa fue diseñada para fomentar un comportamiento eficient
 El término de progreso en distancia calcula la diferencia entre la distancia previa y la distancia actual al \textit{target}. Acercarse genera un refuerzo positivo, mientras que alejarse produce un valor negativo. El costo por paso desalienta que el agente prolongue el episodio sin necesidad. La mejora de orientación se aplica cuando el agente reduce la distancia y evalúa si también mejoró su alineación con la posición del objetivo. La penalización por retroceso evita oscilaciones y trayectorias innecesariamente largas, mientras que el bonus por éxito incentiva completar la tarea de navegación.
 
 \subsection{Baseline de Planificación Discreta}
-Para contextualizar el desempeño de PPO se implementó un controlador no aprendido basado en búsqueda en árbol sobre el mismo espacio discreto de 12 acciones. El controlador utilizado en esta versión opera como un planificador local discreto: expande secuencias candidatas de comandos, simula sus efectos con el modelo del entorno y selecciona la secuencia con mayor recompensa acumulada.
+Para contextualizar el desempeño de PPO se implementó un controlador no aprendido basado en búsqueda en árbol sobre el mismo espacio de acciones. Este baseline se utiliza como una referencia de planificación local, en línea con la motivación de enfoques clásicos como \textit{Dynamic Window Approach} (DWA) para navegación reactiva \cite{dwa}. El controlador utilizado en esta versión opera como un planificador local discreto: expande secuencias candidatas de comandos, simula sus efectos con el modelo del entorno y selecciona la secuencia con mayor recompensa acumulada.
 
 El planificador mantiene un estado interno compuesto por la posición relativa del objetivo y, cuando corresponde, la posición relativa de obstáculos. A partir de ese estado, simula cada acción aplicando la misma transformación geométrica usada por el entorno:
 
@@ -141,11 +135,11 @@ La función de recompensa final se formuló en términos diferenciales para prio
 \begin{figure}[!t]
     \centering
     \subfloat[Reward por episodio.]{%
-        \safeincludegraphics[width=0.48\linewidth]{curva_reward.jpg}%
+        \includegraphics[width=0.99\linewidth]{reward_curve.png}
         \label{fig:reward-curve}}
     \hfil
     \subfloat[Cantidad de pasos por episodio.]{%
-        \safeincludegraphics[width=0.48\linewidth]{curva_steps.jpg}%
+        \includegraphics[width=0.99\linewidth]{steps_previos.png}%
         \label{fig:steps-curve}}
     \caption{Curvas de entrenamiento en una configuración preliminar de recompensa.}
     \label{fig:comparacion-alg}
@@ -163,6 +157,10 @@ Los \textit{policy maps} se utilizaron como herramienta de validación cualitati
 \end{figure}
 
 La política definitiva se entrenó con mediciones refinadas mediante OptiTrack y con una correspondencia validada entre comandos de giro y desplazamientos observados. Esta calibración cierra el ciclo entre el entorno simulado y el robot real, incorporando al modelo transiciones más representativas de la plataforma física.
+
+Como parte del desarrollo experimental, se planteó además una comparación directa entre la simulación y la ejecución en el robot físico. Para ello, los objetivos utilizados en el entorno simulado se expresan en metros, la misma unidad empleada por las mediciones de OptiTrack, y pueden fijarse explícitamente antes de cada prueba. De esta forma, una misma condición inicial, definida por la posición relativa del \textit{target} respecto de la araña, puede reproducirse primero en simulación y luego montarse manualmente en el espacio real de trabajo. Este procedimiento permite observar si la secuencia de comandos seleccionada por la política PPO, y eventualmente por el planificador discreto, produce en hardware una trayectoria cualitativamente consistente con la predicha por el simulador.
+
+La comparación no busca únicamente medir si el objetivo se alcanza, sino también identificar discrepancias entre ambos dominios: errores de escala en los desplazamientos calibrados, diferencias de orientación entre ternas, deriva acumulada por fricción o retardo en la adquisición de datos. Al reutilizar los mismos \textit{targets}, semillas y límites de pasos, la evaluación reduce variaciones externas y facilita atribuir las diferencias observadas a la brecha \textit{sim-to-real} del modelo de movimiento.
 
 \section{Resultados y Discusión}
 Se analizó el desempeño final a partir de tres fuentes: las corridas de \textit{RL Zoo}, los mapas de política obtenidos durante el entrenamiento y las pruebas de transferencia a hardware.
@@ -211,11 +209,10 @@ El proyecto \textsc{S.P.I.D.E.R.} demostró de manera consistente la viabilidad 
 
 A lo largo del proceso debimos abordar diversos desafíos, entre ellos la transformación precisa entre la terna global del sistema OptiTrack y la terna local del robot, la calibración de los comandos motores y la validación de la dinámica de rotación y traslación. La incorporación de mediciones fiables mediante OptiTrack, la búsqueda de hiperparámetros con \texttt{RL Zoo}, el modelado condicionado por pasos anteriores y la comparación contra un baseline de planificación discreta resultaron fundamentales para mejorar la estabilidad del entrenamiento y reducir la brecha entre simulación y realidad.
 
-Si bien el sistema funcionó correctamente, el proyecto presenta ciertas limitaciones: el simulador no modela con fidelidad la física real del robot, el entorno carece de obstáculos físicos y no se midió el \textit{wall time} asociado a cada acción, lo que genera discrepancias en la temporalidad real del movimiento. Aun así, los resultados muestran que, incluso con un estado extremadamente simplificado y un conjunto reducido de acciones, el agente es capaz de navegar eficazmente hacia un objetivo utilizando únicamente información relativa local.
+Si bien el sistema funcionó correctamente, el proyecto presenta ciertas limitaciones: el simulador no modela con fidelidad la física real del robot, el entorno carece de obstáculos físicos y no se midió el tiempo asociado a cada acción, lo que genera discrepancias en la temporalidad real del movimiento. Aun así, los resultados muestran que, incluso con un estado extremadamente simplificado y un conjunto reducido de acciones, el agente es capaz de navegar eficazmente hacia un objetivo utilizando únicamente información relativa local.
 
 En conjunto, \textsc{S.P.I.D.E.R.} cumple sus objetivos y abre múltiples líneas de trabajo, como la incorporación de entornos más complejos, sensores adicionales, políticas multiobjetivo, estrategias más robustas al ruido y la exploración de control multirobot. El proyecto no sólo valida un enfoque, sino que establece una base sólida para futuras investigaciones en navegación autónoma mediante aprendizaje por refuerzo.
 
 \bibliographystyle{IEEEtran}
-\bibliography{biblio,tpFInalRLSpider/biblio}
-
+\bibliography{biblio}
 \end{document}

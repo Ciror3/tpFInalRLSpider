@@ -1,3 +1,0 @@
-method,model_path,training_steps,episodes,successes,success_rate,collision_rate,avg_steps_to_goal,std_steps_to_goal,avg_steps_all,std_steps_all,avg_wall_time_sec,std_wall_time_sec,total_wall_time_sec,avg_reward,std_reward
-DWA/tree-search,,,100,100,1.0,0.0,31.27,13.406606580339412,31.27,13.406606580339412,3.3019795430399994,1.6314159181196666,330.19795430399995,29.34730761767444,9.604933063696118
-PPO ppo_spider_final_previous_steps,spiderJAR/models_previous_steps/previous_steps/ppo_spider_final_previous_steps.zip,,100,100,1.0,0.0,28.13,9.22242375951138,28.13,9.22242375951138,0.005992755159977606,0.001878430488887785,0.5992755159977605,29.952421158420858,9.697788574939485

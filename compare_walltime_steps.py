@@ -732,30 +732,9 @@ def best_dwa_row(rows):
     return min(dwa_rows, key=score)
 
 
-def main():
-    args = parse_args()
-    os.makedirs(args.output_dir, exist_ok=True)
-
-    env_cls, env_kwargs = build_env_config(args)
-    targets = sample_targets(env_cls, env_kwargs, args.episodes, args.seed, args.max_steps)
-    model_specs = discover_models(args)
-    dwa_specs = [] if args.no_dwa else discover_dwa_specs(args)
-
-    rows = []
-    for spec in dwa_specs:
-        print(f"Evaluando {spec.label}...")
-        row = evaluate_dwa(env_cls, env_kwargs, targets, args, spec)
-        rows.append(row)
-        print_summary(row)
-
-    for spec in model_specs:
-        print(f"Evaluando {spec.label}: {spec.path}")
-        row = evaluate_ppo(spec, env_cls, env_kwargs, targets, args)
-        rows.append(row)
-        print_summary(row)
-
+def save_outputs(rows, args, final=False):
     if not rows:
-        raise SystemExit("No hay nada para evaluar: pasá --ppo-model/--ppo-model-dir o quitá --no-dwa.")
+        return
 
     csv_path = os.path.join(args.output_dir, "walltime_steps_metrics.csv")
     write_csv(rows, csv_path)
@@ -785,6 +764,40 @@ def main():
     )
     plot_ppo_checkpoints(rows, args.output_dir)
     plot_ppo_progression_vs_dwa(rows, args.output_dir)
+
+    status = "final" if final else "parcial"
+    print(f"Guardado {status}: {csv_path}")
+
+
+def main():
+    args = parse_args()
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    env_cls, env_kwargs = build_env_config(args)
+    targets = sample_targets(env_cls, env_kwargs, args.episodes, args.seed, args.max_steps)
+    model_specs = discover_models(args)
+    dwa_specs = [] if args.no_dwa else discover_dwa_specs(args)
+
+    rows = []
+    for spec in dwa_specs:
+        print(f"Evaluando {spec.label}...")
+        row = evaluate_dwa(env_cls, env_kwargs, targets, args, spec)
+        rows.append(row)
+        print_summary(row)
+        save_outputs(rows, args)
+
+    for spec in model_specs:
+        print(f"Evaluando {spec.label}: {spec.path}")
+        row = evaluate_ppo(spec, env_cls, env_kwargs, targets, args)
+        rows.append(row)
+        print_summary(row)
+        save_outputs(rows, args)
+
+    if not rows:
+        raise SystemExit("No hay nada para evaluar: pasá --ppo-model/--ppo-model-dir o quitá --no-dwa.")
+
+    csv_path = os.path.join(args.output_dir, "walltime_steps_metrics.csv")
+    save_outputs(rows, args, final=True)
 
     print(f"CSV guardado en {csv_path}")
     print(f"Grafico guardado en {os.path.join(args.output_dir, 'walltime_vs_steps.png')}")
