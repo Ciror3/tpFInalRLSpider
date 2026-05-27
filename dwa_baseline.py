@@ -124,9 +124,8 @@ class DiscreteTreeSearchController:
     def _expand(self, env, score, seq, state, collided, last_distance, action):
         next_state = self._simulate_action(env, state, action)
         dist = self._distance(next_state)
-        next_collision, repulse = self._collision_and_repulse(env, next_state)
-        next_collided = collided or next_collision
-        reward = self._reward_like_env(env, state, next_state, next_collision, repulse)
+        next_collided = False
+        reward = self._reward_like_env(env, state, next_state, False, 0.0)
 
         return score + reward, seq + (action,), next_state, next_collided, dist
 
@@ -171,10 +170,10 @@ class DiscreteTreeSearchController:
         return reward
 
     def _is_terminal(self, env, state, collided):
-        return collided or self._is_success(env, state, collided)
+        return self._is_success(env, state, collided)
 
     def _is_success(self, env, state, collided):
-        return self._distance(state) <= env.success_radius and not collided
+        return self._distance(state) <= env.success_radius
 
     def _read_state(self, env):
         obstacles = getattr(env, "obstacles", np.zeros((0, 3), dtype=np.float64))
